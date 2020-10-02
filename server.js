@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import Message from "./messages.js";
 import Pusher from "pusher";
 import Constants from "./constants.js";
+import cors from "cors";
 
 // App Config
 const app = express();
@@ -13,17 +14,13 @@ var pusher = new Pusher({
   appId: Constants.PUSHER_APP_ID,
   key: Constants.PUSHER_KEY,
   secret: Constants.PUSHER_SECRET,
-  cluster: "ap2",
+  cluster: Constants.PUSHER_CLUSTER,
   encrypted: true,
 });
 
 // Middleware
 app.use(express.json());
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Headers", "*");
-  next();
-});
+app.use(cors());
 
 // DB Config
 const connection_url = Constants.MONGO_CONNECTION_STRING;
@@ -48,6 +45,7 @@ db.once("open", () => {
         name: messageDetails.name,
         message: messageDetails.message,
         timestamp: messageDetails.timestamp,
+        received: messageDetails.received,
       });
     } else {
       console.log("Error Triggering Pusher!");
@@ -70,16 +68,13 @@ app.post("/v1/message/create", (req, res) => {
 });
 
 app.get("/v1/message/sync", (req, res) => {
-  Message.find({})
-    .where("roomId")
-    .equals(req.query.roomId)
-    .exec(function (err, data) {
-      if (err) {
-        res.status(500).send(err);
-      } else {
-        res.status(200).send(data);
-      }
-    });
+  Message.find({}).exec(function (err, data) {
+    if (err) {
+      res.status(500).send(err);
+    } else {
+      res.status(200).send(data);
+    }
+  });
 });
 
 // Listener
