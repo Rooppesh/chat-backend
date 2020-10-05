@@ -3,27 +3,21 @@ import express from "express";
 import mongoose from "mongoose";
 import Message from "./messages.js";
 import Pusher from "pusher";
-import Constants from "./constants.js";
+import Config from "./config.js";
 import cors from "cors";
 
 // App Config
 const app = express();
 const port = process.env.PORT || 9000;
 
-var pusher = new Pusher({
-  appId: Constants.PUSHER_APP_ID,
-  key: Constants.PUSHER_KEY,
-  secret: Constants.PUSHER_SECRET,
-  cluster: Constants.PUSHER_CLUSTER,
-  encrypted: true,
-});
+var pusher = new Pusher(Config.PUSHER_CONNECTION);
 
 // Middleware
 app.use(express.json());
 app.use(cors());
 
 // DB Config
-const connection_url = Constants.MONGO_CONNECTION_STRING;
+const connection_url = Config.MONGO_CONNECTION_STRING;
 mongoose.connect(connection_url, {
   useCreateIndex: true,
   useNewUrlParser: true,
@@ -60,21 +54,31 @@ app.post("/v1/message/create", (req, res) => {
   const messageBody = req.body;
   Message.create(messageBody, (err, data) => {
     if (err) {
+      console.log(err);
       res.status(500).send(err);
     } else {
+      console.log(messageBody);
+
       res.status(201).send(data);
     }
   });
 });
 
 app.get("/v1/message/sync", (req, res) => {
-  Message.find({}).exec(function (err, data) {
-    if (err) {
-      res.status(500).send(err);
-    } else {
-      res.status(200).send(data);
-    }
-  });
+  Message.find({})
+    .where("roomId")
+    .equals(req.query.roomId)
+    .exec(function (err, data) {
+      if (err) {
+        res.status(500).send(err);
+      } else {
+        console.log(data);
+        data.sort((b, a) => {
+          return a.timestamp - b.timestamp;
+        });
+        res.status(200).send(data);
+      }
+    });
 });
 
 // Listener
